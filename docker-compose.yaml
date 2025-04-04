@@ -1,0 +1,19 @@
+services:
+  api:
+    build: .
+    container_name: "user-rest-api"
+    environment:
+      - LOG_LEVEL=DEBUG
+      - PROJECT_ID=admu-iscs-30-23
+      - SIGN_KEY="855113dfaf6780b9842710bee6adf50c27212cc52e572bca1854eb83c64a538a1abd340cc062bda391e131404bdb4e62"
+      - GOOGLE_APPLICATION_CREDENTIALS=/config/gcloud/application_default_credentials.json
+    ports:
+      - "8080:8080"
+    networks:
+      - fullstack
+    volumes:
+      - ~/.config/gcloud/application_default_credentials.json:/config/gcloud/application_default_credentials.json
+
+networks:
+  fullstack:
+    driver: bridge
