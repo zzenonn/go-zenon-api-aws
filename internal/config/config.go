@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/zzenonn/go-zenon-api-aws/internal/integration"
@@ -21,7 +22,7 @@ type Config struct {
 	Port            int
 	ECDSAPrivateKey *ecdsa.PrivateKey
 	ECDSAPublicKey  *ecdsa.PublicKey
-	AwsConfig       awsconfig.Config
+	AwsConfig       aws.Config
 }
 
 // LoadConfig loads the configuration from environment variables and fetches the ECDSA keys from Secret Manager

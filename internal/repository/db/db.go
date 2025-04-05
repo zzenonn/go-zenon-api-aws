@@ -1,30 +1,24 @@
 package db
 
 import (
-	"context"
-
-	"cloud.google.com/go/firestore"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 	log "github.com/sirupsen/logrus"
 	"github.com/zzenonn/go-zenon-api-aws/internal/config"
 )
 
-type FirestoreDb struct {
-	Client *firestore.Client
+type DynamoDb struct {
+	Client        *dynamodb.Client
+	TaggingClient *resourcegroupstaggingapi.Client
 }
 
-func NewDatabase(cfg *config.Config) (*FirestoreDb, error) {
-	ctx := context.Background()
-
-	var client *firestore.Client
-	var err error
-
-	client, err = firestore.NewClient(ctx, cfg.ProjectID)
-
-	if err != nil {
-		log.Fatalf("Failed to create Firestore client: %v", err)
+func NewDatabase(cfg *config.Config) (*DynamoDb, error) {
+	client := dynamodb.NewFromConfig(cfg.AwsConfig)
+	if client == nil {
+		log.Fatal("Failed to create DynamoDB client")
 	}
 
-	return &FirestoreDb{
+	return &DynamoDb{
 		Client: client,
 	}, nil
 }
