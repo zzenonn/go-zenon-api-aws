@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/config"
+	"github.com/zzenonn/go-zenon-api-aws/internal/config"
 )
 
 type Handler interface {

@@ -7,9 +7,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/domain"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/errors"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/service"
+	"github.com/zzenonn/go-zenon-api-aws/internal/domain"
+	"github.com/zzenonn/go-zenon-api-aws/internal/errors"
+	"github.com/zzenonn/go-zenon-api-aws/internal/service"
 )
 
 // TestUpdateUser_Success tests the UpdateUser method when the update is successful

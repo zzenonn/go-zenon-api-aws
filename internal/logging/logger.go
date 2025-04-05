@@ -2,7 +2,7 @@ package logging
 
 import (
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/config"
+	"github.com/zzenonn/go-zenon-api-aws/internal/config"
 )
 
 // InitLogger sets the log level and format based on the provided configuration

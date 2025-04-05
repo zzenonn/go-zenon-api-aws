@@ -3,11 +3,11 @@ package main
 import (
 	log "github.com/sirupsen/logrus"
 
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/config"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/logging"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/repository/db"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/service"
-	handlers "gitlab.com/zzenonn/go-zenon-api-aws/internal/transport/http"
+	"github.com/zzenonn/go-zenon-api-aws/internal/config"
+	"github.com/zzenonn/go-zenon-api-aws/internal/logging"
+	"github.com/zzenonn/go-zenon-api-aws/internal/repository/db"
+	"github.com/zzenonn/go-zenon-api-aws/internal/service"
+	handlers "github.com/zzenonn/go-zenon-api-aws/internal/transport/http"
 )
 
 // Instantiate and startup go app

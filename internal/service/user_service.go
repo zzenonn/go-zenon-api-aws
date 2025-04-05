@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/domain"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/errors"
+	"github.com/zzenonn/go-zenon-api-aws/internal/domain"
+	"github.com/zzenonn/go-zenon-api-aws/internal/errors"
 	"golang.org/x/crypto/bcrypt"
 )
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"cloud.google.com/go/firestore"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/domain"
+	"github.com/zzenonn/go-zenon-api-aws/internal/domain"
 	"google.golang.org/api/iterator"
 )
 

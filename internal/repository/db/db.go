@@ -5,7 +5,7 @@ import (
 
 	"cloud.google.com/go/firestore"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/config"
+	"github.com/zzenonn/go-zenon-api-aws/internal/config"
 )
 
 type FirestoreDb struct {

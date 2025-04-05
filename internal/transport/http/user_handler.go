@@ -9,8 +9,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/config"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/domain"
+	"github.com/zzenonn/go-zenon-api-aws/internal/config"
+	"github.com/zzenonn/go-zenon-api-aws/internal/domain"
 )
 
 type UserService interface {

@@ -9,8 +9,9 @@ import (
 	"strconv"
 	"strings"
 
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/golang-jwt/jwt/v5"
-	"gitlab.com/zzenonn/go-zenon-api-aws/internal/integration"
+	"github.com/zzenonn/go-zenon-api-aws/internal/integration"
 )
 
 // Config holds the application configuration
@@ -20,6 +21,7 @@ type Config struct {
 	Port            int
 	ECDSAPrivateKey *ecdsa.PrivateKey
 	ECDSAPublicKey  *ecdsa.PublicKey
+	AwsConfig       awsconfig.Config
 }
 
 // LoadConfig loads the configuration from environment variables and fetches the ECDSA keys from Secret Manager
@@ -32,14 +34,19 @@ func LoadConfig() (*Config, error) {
 		return nil, err
 	}
 
-	// Create and return the configuration struct
+	cfg, err := awsconfig.LoadDefaultConfig(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("unable to load AWS SDK config: %v", err)
+	}
+
 	config := &Config{
 		ProjectID: getEnv("PROJECT_ID", "default-project-id"),
 		LogLevel:  getEnv("LOG_LEVEL", "info"),
 		Port:      port,
+		AwsConfig: cfg,
 	}
 
-	// Fetch the ECDSA keys from Google Secret Manager
+	// Fetch the ECDSA keys from AWS Secret Manager
 	err = config.loadECDSAKeys()
 	if err != nil {
 		return nil, err
@@ -50,7 +57,7 @@ func LoadConfig() (*Config, error) {
 
 // loadECDSAKeys retrieves the ECDSA private and public keys from Secret Manager
 func (c *Config) loadECDSAKeys() error {
-	secretManagerService, err := integration.NewGoogleSecretsManagerService()
+	secretManagerService, err := integration.NewAWSSSMService()
 	if err != nil {
 		return err
 	}
