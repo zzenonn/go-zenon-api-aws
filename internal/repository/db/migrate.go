@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 	rgTypes "github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi/types"
 	log "github.com/sirupsen/logrus"
-	"github.com/zzenonn/go-zenon-api-aws/repository/migrate"
+	"github.com/zzenonn/go-zenon-api-aws/internal/repository/migrate"
 )
 
 func init() {
@@ -34,7 +34,8 @@ func init() {
 type Migration interface {
 	Up(ctx context.Context, client *dynamodb.Client) error
 	Down(ctx context.Context, client *dynamodb.Client) error
-	Version() string
+	GetVersion() string
+	GetTableName() string
 }
 
 func (d *DynamoDb) MigrateDb(ctx context.Context) error {
@@ -42,30 +43,31 @@ func (d *DynamoDb) MigrateDb(ctx context.Context) error {
 
 	// Define migrations in order
 	migrations := []Migration{
-		&migrate.CreateUsersTable{},
-		// Add more migrations here
+		&migrate.CreateUsersTable{
+			TableName: "users",
+			Version:   "20250405000000_create_users_table",
+		}, // Add more migrations here
 	}
-
 	for _, migration := range migrations {
 		// Check if migration was already applied
-		if applied, err := d.isMigrationApplied(ctx, migration.Version()); err != nil {
+		if applied, err := d.isMigrationApplied(ctx, migration.GetVersion()); err != nil {
 			return fmt.Errorf("could not check migration status: %w", err)
 		} else if applied {
-			log.Infof("skipping migration %s: already applied", migration.Version())
+			log.Infof("skipping migration %s: already applied", migration.GetVersion())
 			continue
 		}
 
 		// Apply migration
 		if err := migration.Up(ctx, d.Client); err != nil {
-			return fmt.Errorf("could not apply migration %s: %w", migration.Version(), err)
+			return fmt.Errorf("could not apply migration %s: %w", migration.GetVersion(), err)
 		}
 
 		// Record migration using tags
-		if err := d.recordMigration(ctx, migration.Version()); err != nil {
-			return fmt.Errorf("could not record migration %s: %w", migration.Version(), err)
+		if err := d.recordMigration(ctx, migration.GetVersion(), migration.GetTableName()); err != nil {
+			return fmt.Errorf("could not record migration %s: %w", migration.GetVersion(), err)
 		}
 
-		log.Infof("successfully applied migration %s", migration.Version())
+		log.Infof("successfully applied migration %s", migration.GetVersion())
 	}
 
 	log.Info("successfully migrated the database")
@@ -91,10 +93,10 @@ func (d *DynamoDb) isMigrationApplied(ctx context.Context, version string) (bool
 	return len(result.ResourceTagMappingList) > 0, nil
 }
 
-func (d *DynamoDb) recordMigration(ctx context.Context, version string) error {
+func (d *DynamoDb) recordMigration(ctx context.Context, version string, tableName string) error {
 	// Get table ARN
 	describeInput := &dynamodb.DescribeTableInput{
-		TableName: aws.String("users"), // You might want to make this configurable
+		TableName: aws.String(tableName),
 	}
 
 	tableDesc, err := d.Client.DescribeTable(ctx, describeInput)
