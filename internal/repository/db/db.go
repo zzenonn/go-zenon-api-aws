@@ -18,7 +18,13 @@ func NewDatabase(cfg *config.Config) (*DynamoDb, error) {
 		log.Fatal("Failed to create DynamoDB client")
 	}
 
+	taggingClient := resourcegroupstaggingapi.NewFromConfig(cfg.AwsConfig)
+	if taggingClient == nil {
+		log.Fatal("Failed to create Resource Groups Tagging API client")
+	}
+
 	return &DynamoDb{
-		Client: client,
+		Client:        client,
+		TaggingClient: taggingClient,
 	}, nil
 }

@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/zzenonn/go-zenon-api-aws/internal/domain"
 	"github.com/zzenonn/go-zenon-api-aws/internal/errors"
 	"golang.org/x/crypto/bcrypt"
@@ -13,8 +12,8 @@ import (
 type UserRepository interface {
 	CreateUser(ctx context.Context, user domain.User) (domain.User, error)
 	GetUser(ctx context.Context, username string) (domain.User, error)
-	UpdateUser(ctx context.Context, id string, user domain.User) (domain.User, error)
-	DeleteUser(ctx context.Context, id string) error
+	UpdateUser(ctx context.Context, username string, user domain.User) (domain.User, error)
+	DeleteUser(ctx context.Context, username string) error
 	GetAllUsers(ctx context.Context, pageSize int, nextToken string) ([]domain.User, string, error)
 }
 
@@ -33,13 +32,10 @@ func NewUserService(repo UserRepository) *UserService {
 func (s *UserService) CreateUser(ctx context.Context, user domain.User) (domain.User, error) {
 	// Check if the username already exists
 	existingUser, err := s.Repo.GetUser(ctx, *user.Username)
-	if err == nil && existingUser.Id != "" {
+	if err == nil && existingUser.Username != nil {
 		// If a user with the username already exists, return an error
 		return domain.User{}, errors.ErrInvalidUser
 	}
-
-	// Proceed if the username doesn't exist
-	user.Id = uuid.New().String()
 
 	if err := user.HashPassword(); err != nil {
 		return domain.User{}, err
@@ -79,7 +75,7 @@ func (s *UserService) UpdateUser(ctx context.Context, user domain.User) (domain.
 		}
 	}
 
-	user, err = s.Repo.UpdateUser(ctx, userToUpdate.Id, user)
+	user, err = s.Repo.UpdateUser(ctx, *userToUpdate.Username, user)
 
 	if err != nil {
 		return domain.User{}, err
@@ -96,14 +92,13 @@ func (s *UserService) DeleteUser(ctx context.Context, username string) error {
 		return err
 	}
 
-	err = s.Repo.DeleteUser(ctx, userToDelete.Id)
+	err = s.Repo.DeleteUser(ctx, *userToDelete.Username)
 
 	return err
 }
 
 // TODO send email vefification
 func (s *UserService) Signup(ctx context.Context, user domain.User) (domain.User, error) {
-	user.Id = uuid.New().String()
 
 	if err := user.HashPassword(); err != nil {
 		return domain.User{}, err

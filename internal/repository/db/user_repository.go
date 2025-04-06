@@ -48,7 +48,7 @@ func (repo *UserRepository) CreateUser(ctx context.Context, user domain.User) (d
 func (repo *UserRepository) GetUser(ctx context.Context, username string) (domain.User, error) {
 	input := &dynamodb.QueryInput{
 		TableName:              aws.String(repo.tableName),
-		KeyConditionExpression: aws.String("username = :username"),
+		KeyConditionExpression: aws.String("pk = :username"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":username": &types.AttributeValueMemberS{Value: username},
 		},
@@ -81,13 +81,13 @@ func (repo *UserRepository) UpdateUser(ctx context.Context, username string, use
 	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String(repo.tableName),
 		Key: map[string]types.AttributeValue{
-			"username": &types.AttributeValueMemberS{Value: username},
+			"pk": &types.AttributeValueMemberS{Value: username},
 		},
 		AttributeUpdates: make(map[string]types.AttributeValueUpdate),
 	}
 
 	for key, value := range userMap {
-		if key != "username" {
+		if key != "pk" {
 			input.AttributeUpdates[key] = types.AttributeValueUpdate{
 				Value:  value,
 				Action: types.AttributeActionPut,
@@ -106,7 +106,7 @@ func (repo *UserRepository) DeleteUser(ctx context.Context, username string) err
 	input := &dynamodb.DeleteItemInput{
 		TableName: aws.String(repo.tableName),
 		Key: map[string]types.AttributeValue{
-			"username": &types.AttributeValueMemberS{Value: username},
+			"pk": &types.AttributeValueMemberS{Value: username},
 		},
 	}
 
@@ -119,7 +119,7 @@ func (repo *UserRepository) DeleteUser(ctx context.Context, username string) err
 func (repo *UserRepository) GetUserPassword(ctx context.Context, username string) (domain.User, error) {
 	input := &dynamodb.QueryInput{
 		TableName:              aws.String(repo.tableName),
-		KeyConditionExpression: aws.String("username = :username"),
+		KeyConditionExpression: aws.String("pk = :username"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":username": &types.AttributeValueMemberS{Value: username},
 		},

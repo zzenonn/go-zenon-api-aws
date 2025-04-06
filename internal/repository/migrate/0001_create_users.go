@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"context"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -16,24 +17,24 @@ const (
 type CreateUsersTable struct{}
 
 func (m *CreateUsersTable) Version() string {
-	return TableName
+	return Version
 }
 
 func (m *CreateUsersTable) TableName() string {
-	return Version
+	return TableName
 }
 
 func (m *CreateUsersTable) Up(ctx context.Context, client *dynamodb.Client) error {
 	input := &dynamodb.CreateTableInput{
 		AttributeDefinitions: []types.AttributeDefinition{
 			{
-				AttributeName: aws.String("id"),
+				AttributeName: aws.String("pk"),
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 		},
 		KeySchema: []types.KeySchemaElement{
 			{
-				AttributeName: aws.String("id"),
+				AttributeName: aws.String("pk"),
 				KeyType:       types.KeyTypeHash,
 			},
 		},
@@ -44,7 +45,17 @@ func (m *CreateUsersTable) Up(ctx context.Context, client *dynamodb.Client) erro
 		},
 	}
 
+	// Add waiter after creating table to ensure it is active
 	_, err := client.CreateTable(ctx, input)
+	if err != nil {
+		return err
+	}
+
+	waiter := dynamodb.NewTableExistsWaiter(client)
+	err = waiter.Wait(ctx, &dynamodb.DescribeTableInput{
+		TableName: aws.String(TableName),
+	}, 5*time.Minute)
+
 	return err
 }
 

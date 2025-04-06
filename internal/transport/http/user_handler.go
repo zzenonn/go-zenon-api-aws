@@ -32,14 +32,12 @@ type UserHandler struct {
 }
 
 type PostUserRequest struct {
-	Id       string `json:"id"`
 	Username string `json:"username" validate:"required"`
 	Password string `json:"password" validate:"required"`
 }
 
 func convertPostUserRequestToUser(u PostUserRequest) domain.User {
 	return domain.User{
-		Id:       u.Id,
 		Username: &u.Username,
 		Password: u.Password,
 	}
@@ -92,15 +90,15 @@ func (h *UserHandler) PostUser(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	log.Debug("Received GET /api/v1/users/{username} request")
 
-	userId := chi.URLParam(r, "username")
-	if userId == "" {
+	username := chi.URLParam(r, "username")
+	if username == "" {
 		log.Error("No username provided in request")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	log.Debug(fmt.Sprintf("Fetching user with ID: %s", userId))
-	u, err := h.Service.GetUser(r.Context(), userId)
+	log.Debug(fmt.Sprintf("Fetching user with ID: %s", username))
+	u, err := h.Service.GetUser(r.Context(), username)
 	if err != nil {
 		log.Error("Error fetching user: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -117,8 +115,8 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	log.Debug("Received PUT /api/v1/users/{username} request")
 
-	userId := chi.URLParam(r, "username")
-	if userId == "" {
+	username := chi.URLParam(r, "username")
+	if username == "" {
 		log.Debug("No username provided in request")
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -130,7 +128,7 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debug(fmt.Sprintf("Updating user with ID: %s", userId))
+	log.Debug(fmt.Sprintf("Updating user with ID: %s", username))
 
 	u, err := h.Service.UpdateUser(r.Context(), u)
 	if err != nil {
@@ -149,16 +147,16 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	log.Debug("Received DELETE /api/v1/users/{username} request")
 
-	userId := chi.URLParam(r, "username")
-	if userId == "" {
+	username := chi.URLParam(r, "username")
+	if username == "" {
 		log.Debug("No username provided in request")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	log.Debug(fmt.Sprintf("Deleting user with ID: %s", userId))
+	log.Debug(fmt.Sprintf("Deleting user with ID: %s", username))
 
-	err := h.Service.DeleteUser(r.Context(), userId)
+	err := h.Service.DeleteUser(r.Context(), username)
 	if err != nil {
 		log.Error("Error deleting user: ", err)
 		w.WriteHeader(http.StatusInternalServerError)

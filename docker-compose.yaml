@@ -4,8 +4,9 @@ services:
     container_name: "user-rest-api-aws"
     environment:
       - LOG_LEVEL=DEBUG
-      - AWS_SHARED_CREDENTIALS_FILE=/home/appuser/.aws/credentials
-      - AWS_CONFIG_FILE=/home/appuser/.aws/config
+      - AWS_PROFILE=${AWS_PROFILE}
+      # - AWS_SHARED_CREDENTIALS_FILE=/home/appuser/.aws/credentials
+      # - AWS_CONFIG_FILE=/home/appuser/.aws/config
     ports:
       - "8080:8080"
     networks:

@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/zzenonn/go-zenon-api-aws/internal/domain"
@@ -77,7 +76,6 @@ func TestCreateUser_UsernameExists(t *testing.T) {
 
 	ctx := context.Background()
 	existingUser := domain.User{
-		Id:       uuid.New().String(),
 		Username: stringPtr("testuser"),
 	}
 
@@ -103,7 +101,6 @@ func TestGetUser(t *testing.T) {
 
 	ctx := context.Background()
 	expectedUser := domain.User{
-		Id:       uuid.New().String(),
 		Username: stringPtr("testuser"),
 	}
 
@@ -125,7 +122,6 @@ func TestLogin(t *testing.T) {
 
 	ctx := context.Background()
 	expectedUser := domain.User{
-		Id:             uuid.New().String(),
 		Username:       stringPtr("testuser"),
 		HashedPassword: []byte("$2a$10$hPSU2uhX6jABfAf63G5MmeqZnpMCA.1mZcD1f5WP757Bk67vu5boq"), // bcrypt hash of "password"
 	}

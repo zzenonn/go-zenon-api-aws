@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -66,7 +67,9 @@ func (h *MainHandler) AddHandler(handler Handler) {
 
 func (h *MainHandler) MapRoutes() {
 	h.Router.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello world")
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": "Hello world",
+		})
 	})
 
 	for _, handler := range h.Handlers {

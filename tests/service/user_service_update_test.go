@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/zzenonn/go-zenon-api-aws/internal/domain"
@@ -19,7 +18,6 @@ func TestUpdateUser_Success(t *testing.T) {
 
 	ctx := context.Background()
 	existingUser := domain.User{
-		Id:       uuid.New().String(),
 		Username: stringPtr("testuser"),
 	}
 
@@ -32,7 +30,7 @@ func TestUpdateUser_Success(t *testing.T) {
 	mockRepo.On("GetUser", ctx, *existingUser.Username).Return(existingUser, nil)
 
 	// Mock the UpdateUser method to return the updated user
-	mockRepo.On("UpdateUser", ctx, existingUser.Id, mock.AnythingOfType("domain.User")).Return(updatedUser, nil)
+	mockRepo.On("UpdateUser", ctx, existingUser.Username, mock.AnythingOfType("domain.User")).Return(updatedUser, nil)
 
 	result, err := userService.UpdateUser(ctx, updatedUser)
 
@@ -70,7 +68,6 @@ func TestUpdateUser_PasswordUpdate(t *testing.T) {
 
 	ctx := context.Background()
 	existingUser := domain.User{
-		Id:       uuid.New().String(),
 		Username: stringPtr("testuser"),
 	}
 
@@ -83,7 +80,7 @@ func TestUpdateUser_PasswordUpdate(t *testing.T) {
 	mockRepo.On("GetUser", ctx, *existingUser.Username).Return(existingUser, nil)
 
 	// Mock the UpdateUser method to return the updated user
-	mockRepo.On("UpdateUser", ctx, existingUser.Id, mock.AnythingOfType("domain.User")).Return(updatedUser, nil)
+	mockRepo.On("UpdateUser", ctx, existingUser.Username, mock.AnythingOfType("domain.User")).Return(updatedUser, nil)
 
 	result, err := userService.UpdateUser(ctx, updatedUser)
 
@@ -100,7 +97,6 @@ func TestUpdateUser_ErrorDuringUpdate(t *testing.T) {
 
 	ctx := context.Background()
 	existingUser := domain.User{
-		Id:       uuid.New().String(),
 		Username: stringPtr("testuser"),
 	}
 
@@ -113,7 +109,7 @@ func TestUpdateUser_ErrorDuringUpdate(t *testing.T) {
 	mockRepo.On("GetUser", ctx, *existingUser.Username).Return(existingUser, nil)
 
 	// Mock the UpdateUser method to return an error
-	mockRepo.On("UpdateUser", ctx, existingUser.Id, mock.AnythingOfType("domain.User")).Return(domain.User{}, errors.ErrInvalidUser)
+	mockRepo.On("UpdateUser", ctx, existingUser.Username, mock.AnythingOfType("domain.User")).Return(domain.User{}, errors.ErrInvalidUser)
 
 	_, err := userService.UpdateUser(ctx, updatedUser)
 
