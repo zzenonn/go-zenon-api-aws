@@ -3,11 +3,11 @@ version: '3'
 tasks:
   build:
     cmds:
-      - go build -v ./...
+      - source .env && go build -v ./...
 
   test:
     cmds:
-      - go test -v ./...
+      - source .env && go test -v ./...
 
   lint:
     cmds:
@@ -15,7 +15,7 @@ tasks:
 
   run:
     cmds:
-      - export CLOUDSDK_AUTH_ACCESS_TOKEN=$(gcloud auth print-access-token) && docker-compose up --build
+      - source .env && docker-compose up --build
 
   deploy:
     cmds:

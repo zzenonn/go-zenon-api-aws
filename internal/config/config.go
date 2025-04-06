@@ -17,7 +17,6 @@ import (
 
 // Config holds the application configuration
 type Config struct {
-	ProjectID       string
 	LogLevel        string
 	Port            int
 	ECDSAPrivateKey *ecdsa.PrivateKey
@@ -41,14 +40,13 @@ func LoadConfig() (*Config, error) {
 	}
 
 	config := &Config{
-		ProjectID: getEnv("PROJECT_ID", "default-project-id"),
 		LogLevel:  getEnv("LOG_LEVEL", "info"),
 		Port:      port,
 		AwsConfig: cfg,
 	}
 
 	// Fetch the ECDSA keys from AWS Secret Manager
-	err = config.loadECDSAKeys()
+	err = config.loadECDSAKeys(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -57,15 +55,15 @@ func LoadConfig() (*Config, error) {
 }
 
 // loadECDSAKeys retrieves the ECDSA private and public keys from Secret Manager
-func (c *Config) loadECDSAKeys() error {
-	secretManagerService, err := integration.NewAWSSSMService()
+func (c *Config) loadECDSAKeys(cfg aws.Config) error {
+	secretManagerService, err := integration.NewAWSSSMService(cfg)
 	if err != nil {
 		return err
 	}
 
-	// Construct secret paths using project ID
-	privateKeySecretPath := getEnv("ECDSA_PRIVATE_KEY_SECRET_PATH", fmt.Sprintf("projects/%s/secrets/ECDSAPrivateKey/versions/latest", c.ProjectID))
-	publicKeySecretPath := getEnv("ECDSA_PUBLIC_KEY_SECRET_PATH", fmt.Sprintf("projects/%s/secrets/ECDSAPublicKey/versions/latest", c.ProjectID))
+	// Construct secret paths using environment variables
+	privateKeySecretPath := getEnv("ECDSA_PRIVATE_KEY_SECRET_PATH", "/ecdsa/private-key")
+	publicKeySecretPath := getEnv("ECDSA_PUBLIC_KEY_SECRET_PATH", "/ecdsa/public-key")
 
 	// Fetch the ECDSA private key
 	privateKey, err := secretManagerService.GetSecretValue(context.Background(), privateKeySecretPath)

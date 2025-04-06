@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/zzenonn/go-zenon-api-aws/internal/config"
@@ -21,14 +23,19 @@ func Run() error {
 	logging.InitLogger(cfg)
 	log.Println("starting up the application")
 
-	firestoreDb, err := db.NewDatabase(cfg)
+	dynamoDb, err := db.NewDatabase(cfg)
 
 	if err != nil {
 		log.Error("Failed to connect to the database")
 		return err
 	}
 
-	userRepository := db.NewUserRepository(firestoreDb.Client, "users-admu")
+	if err := dynamoDb.MigrateDb(context.Background()); err != nil {
+		log.Error("Failed to migrate the database")
+		return err
+	}
+
+	userRepository := db.NewUserRepository(dynamoDb.Client, "users")
 	userService := service.NewUserService(&userRepository)
 	userHandler := handlers.NewUserHandler(userService, cfg)
 

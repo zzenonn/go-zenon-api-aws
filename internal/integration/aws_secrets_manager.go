@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
@@ -17,12 +16,7 @@ type AWSSSMService struct {
 	client *ssm.Client
 }
 
-func NewAWSSSMService() (*AWSSSMService, error) {
-	cfg, err := config.LoadDefaultConfig(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("unable to load AWS config: %v", err)
-	}
-
+func NewAWSSSMService(cfg aws.Config) (*AWSSSMService, error) {
 	client := ssm.NewFromConfig(cfg)
 
 	return &AWSSSMService{

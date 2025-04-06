@@ -37,9 +37,12 @@ func (m *MockUserRepository) DeleteUser(ctx context.Context, id string) error {
 	return args.Error(0)
 }
 
-func (m *MockUserRepository) GetAllUsers(ctx context.Context, page, pageSize int) ([]domain.User, error) {
-	args := m.Called(ctx, page, pageSize)
-	return args.Get(0).([]domain.User), args.Error(1)
+func (m *MockUserRepository) GetAllUsers(ctx context.Context,
+	pageSize int,
+	nextToken string,
+) ([]domain.User, string, error) {
+	args := m.Called(ctx, pageSize, nextToken)
+	return args.Get(0).([]domain.User), args.Get(1).(string), args.Error(2)
 }
 
 // TestCreateUser tests the CreateUser method of the UserService

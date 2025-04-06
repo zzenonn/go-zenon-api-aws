@@ -34,8 +34,8 @@ func init() {
 type Migration interface {
 	Up(ctx context.Context, client *dynamodb.Client) error
 	Down(ctx context.Context, client *dynamodb.Client) error
-	GetVersion() string
-	GetTableName() string
+	Version() string
+	TableName() string
 }
 
 func (d *DynamoDb) MigrateDb(ctx context.Context) error {
@@ -43,31 +43,28 @@ func (d *DynamoDb) MigrateDb(ctx context.Context) error {
 
 	// Define migrations in order
 	migrations := []Migration{
-		&migrate.CreateUsersTable{
-			TableName: "users",
-			Version:   "20250405000000_create_users_table",
-		}, // Add more migrations here
+		&migrate.CreateUsersTable{}, // Add more migrations here
 	}
 	for _, migration := range migrations {
 		// Check if migration was already applied
-		if applied, err := d.isMigrationApplied(ctx, migration.GetVersion()); err != nil {
+		if applied, err := d.isMigrationApplied(ctx, migration.Version()); err != nil {
 			return fmt.Errorf("could not check migration status: %w", err)
 		} else if applied {
-			log.Infof("skipping migration %s: already applied", migration.GetVersion())
+			log.Infof("skipping migration %s: already applied", migration.Version())
 			continue
 		}
 
 		// Apply migration
 		if err := migration.Up(ctx, d.Client); err != nil {
-			return fmt.Errorf("could not apply migration %s: %w", migration.GetVersion(), err)
+			return fmt.Errorf("could not apply migration %s: %w", migration.Version(), err)
 		}
 
 		// Record migration using tags
-		if err := d.recordMigration(ctx, migration.GetVersion(), migration.GetTableName()); err != nil {
-			return fmt.Errorf("could not record migration %s: %w", migration.GetVersion(), err)
+		if err := d.recordMigration(ctx, migration.Version(), migration.TableName()); err != nil {
+			return fmt.Errorf("could not record migration %s: %w", migration.Version(), err)
 		}
 
-		log.Infof("successfully applied migration %s", migration.GetVersion())
+		log.Infof("successfully applied migration %s", migration.Version())
 	}
 
 	log.Info("successfully migrated the database")

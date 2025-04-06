@@ -1,144 +1,181 @@
 package db
 
+// FOR REVIEW!
 import (
 	"context"
 	"errors"
 	"fmt"
 
-	"cloud.google.com/go/firestore"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/zzenonn/go-zenon-api-aws/internal/domain"
-	"google.golang.org/api/iterator"
 )
 
-// UserRepository manages Firestore interactions for the User domain.
+// UserRepository manages DynamoDB interactions for the User domain.
 type UserRepository struct {
-	client         *firestore.Client
-	collectionName string
+	client    *dynamodb.Client
+	tableName string
 }
 
 // NewUserRepository initializes a new UserRepository.
-func NewUserRepository(client *firestore.Client, collectionName string) UserRepository {
+func NewUserRepository(client *dynamodb.Client, tableName string) UserRepository {
 	return UserRepository{
-		client:         client,
-		collectionName: collectionName,
+		client:    client,
+		tableName: tableName,
 	}
-}
-
-// convertUserToMap converts a domain.User to a map for Firestore storage.
-func convertUserToMap(user domain.User) (map[string]interface{}, error) {
-	if user.Username == nil || len(user.HashedPassword) < 1 {
-		return nil, errors.New("missing required fields: username or password")
-	}
-
-	userMap := map[string]interface{}{
-		"id":              user.Id,
-		"hashed_password": user.HashedPassword,
-	}
-
-	if user.Username != nil {
-		userMap["username"] = *user.Username
-	}
-
-	return userMap, nil
 }
 
 func (repo *UserRepository) CreateUser(ctx context.Context, user domain.User) (domain.User, error) {
-	userMap, err := convertUserToMap(user)
+	userMap, err := attributevalue.MarshalMap(user)
 	if err != nil {
-		return domain.User{}, fmt.Errorf("failed to convert user: %w", err)
+		return domain.User{}, fmt.Errorf("failed to marshal user: %w", err)
 	}
 
-	if _, err := repo.client.Collection(repo.collectionName).Doc(user.Id).Set(ctx, userMap); err != nil {
+	input := &dynamodb.PutItemInput{
+		TableName: aws.String(repo.tableName),
+		Item:      userMap,
+	}
+
+	if _, err := repo.client.PutItem(ctx, input); err != nil {
 		return domain.User{}, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	return user, nil
 }
-func (repo *UserRepository) GetUser(ctx context.Context, username string) (domain.User, error) {
 
-	iter := repo.client.Collection(repo.collectionName).Where("username", "==", username).Limit(1).Documents(ctx)
-	doc, err := iter.Next()
-	if err == iterator.Done {
-		return domain.User{}, errors.New("user not found")
+func (repo *UserRepository) GetUser(ctx context.Context, username string) (domain.User, error) {
+	input := &dynamodb.QueryInput{
+		TableName:              aws.String(repo.tableName),
+		KeyConditionExpression: aws.String("username = :username"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":username": &types.AttributeValueMemberS{Value: username},
+		},
+		Limit: aws.Int32(1),
 	}
+
+	result, err := repo.client.Query(ctx, input)
 	if err != nil {
-		return domain.User{}, fmt.Errorf("failed to get user by username: %w", err)
+		return domain.User{}, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	if len(result.Items) == 0 {
+		return domain.User{}, errors.New("user not found")
 	}
 
 	var user domain.User
-	if err := doc.DataTo(&user); err != nil {
-		return domain.User{}, fmt.Errorf("failed to parse user data: %w", err)
+	if err := attributevalue.UnmarshalMap(result.Items[0], &user); err != nil {
+		return domain.User{}, fmt.Errorf("failed to unmarshal user data: %w", err)
 	}
 
-	user.Id = doc.Ref.ID
 	return user, nil
 }
-func (repo *UserRepository) UpdateUser(ctx context.Context, id string, user domain.User) (domain.User, error) {
-	userMap, err := convertUserToMap(user)
+
+func (repo *UserRepository) UpdateUser(ctx context.Context, username string, user domain.User) (domain.User, error) {
+	userMap, err := attributevalue.MarshalMap(user)
 	if err != nil {
-		return domain.User{}, fmt.Errorf("failed to convert user: %w", err)
+		return domain.User{}, fmt.Errorf("failed to marshal user: %w", err)
 	}
 
-	if _, err := repo.client.Collection(repo.collectionName).Doc(id).Set(ctx, userMap, firestore.MergeAll); err != nil {
+	input := &dynamodb.UpdateItemInput{
+		TableName: aws.String(repo.tableName),
+		Key: map[string]types.AttributeValue{
+			"username": &types.AttributeValueMemberS{Value: username},
+		},
+		AttributeUpdates: make(map[string]types.AttributeValueUpdate),
+	}
+
+	for key, value := range userMap {
+		if key != "username" {
+			input.AttributeUpdates[key] = types.AttributeValueUpdate{
+				Value:  value,
+				Action: types.AttributeActionPut,
+			}
+		}
+	}
+
+	if _, err := repo.client.UpdateItem(ctx, input); err != nil {
 		return domain.User{}, fmt.Errorf("failed to update user: %w", err)
 	}
 
 	return user, nil
 }
-func (repo *UserRepository) DeleteUser(ctx context.Context, id string) error {
-	if _, err := repo.client.Collection(repo.collectionName).Doc(id).Delete(ctx); err != nil {
+
+func (repo *UserRepository) DeleteUser(ctx context.Context, username string) error {
+	input := &dynamodb.DeleteItemInput{
+		TableName: aws.String(repo.tableName),
+		Key: map[string]types.AttributeValue{
+			"username": &types.AttributeValueMemberS{Value: username},
+		},
+	}
+
+	if _, err := repo.client.DeleteItem(ctx, input); err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 	return nil
 }
+
 func (repo *UserRepository) GetUserPassword(ctx context.Context, username string) (domain.User, error) {
-	iter := repo.client.Collection(repo.collectionName).Where("username", "==", username).Limit(1).Documents(ctx)
-	doc, err := iter.Next()
-	if err == iterator.Done {
-		return domain.User{}, errors.New("user not found")
+	input := &dynamodb.QueryInput{
+		TableName:              aws.String(repo.tableName),
+		KeyConditionExpression: aws.String("username = :username"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":username": &types.AttributeValueMemberS{Value: username},
+		},
+		Limit: aws.Int32(1),
 	}
+
+	result, err := repo.client.Query(ctx, input)
 	if err != nil {
 		return domain.User{}, fmt.Errorf("failed to get user by username: %w", err)
 	}
 
+	if result.Items[0] == nil {
+		return domain.User{}, errors.New("user not found")
+	}
+
 	var user domain.User
-	if err := doc.DataTo(&user); err != nil {
+	if err := attributevalue.UnmarshalMap(result.Items[0], &user); err != nil {
 		return domain.User{}, fmt.Errorf("failed to parse user data: %w", err)
 	}
 
-	user.Id = doc.Ref.ID
 	return user, nil
 }
 
-// GetAllUsers retrieves users from Firestore with pagination.
-func (repo *UserRepository) GetAllUsers(ctx context.Context, page, pageSize int) ([]domain.User, error) {
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 {
-		pageSize = 10
+// GetAllUsers retrieves users from DynamoDB using cursor-based pagination.
+// Pass a non-nil startKey to get the next page; otherwise, pass nil to get the first page.
+func (repo *UserRepository) GetAllUsers(
+	ctx context.Context,
+	pageSize int,
+	nextToken string,
+) ([]domain.User, string, error) {
+
+	startKey, err := decodeStartKey(nextToken)
+	if err != nil {
+		return nil, "", fmt.Errorf("invalid pagination token: %w", err)
 	}
 
-	offset := (page - 1) * pageSize
-	iter := repo.client.Collection(repo.collectionName).OrderBy("username", firestore.Asc).Offset(offset).Limit(pageSize).Documents(ctx)
+	input := &dynamodb.ScanInput{
+		TableName:         aws.String(repo.tableName),
+		Limit:             aws.Int32(int32(pageSize)),
+		ExclusiveStartKey: startKey,
+	}
+
+	result, err := repo.client.Scan(ctx, input)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to scan users: %w", err)
+	}
 
 	var users []domain.User
-	for {
-		doc, err := iter.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to iterate users: %w", err)
-		}
-
-		var user domain.User
-		if err := doc.DataTo(&user); err != nil {
-			return nil, fmt.Errorf("failed to parse user data: %w", err)
-		}
-
-		users = append(users, user)
+	if err := attributevalue.UnmarshalListOfMaps(result.Items, &users); err != nil {
+		return nil, "", fmt.Errorf("failed to unmarshal users: %w", err)
 	}
 
-	return users, nil
+	nextTokenOut, err := encodeStartKey(result.LastEvaluatedKey)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to encode pagination token: %w", err)
+	}
+
+	return users, nextTokenOut, nil
 }

@@ -8,18 +8,19 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-// Simplified struct with direct field access since getters don't add value in this case
-type CreateUsersTable struct {
-	TableName string
-	Version   string
+const (
+	TableName = "users"
+	Version   = "20250405000000_users_table"
+)
+
+type CreateUsersTable struct{}
+
+func (m *CreateUsersTable) Version() string {
+	return TableName
 }
 
-func (m *CreateUsersTable) GetVersion() string {
-	return m.TableName
-}
-
-func (m *CreateUsersTable) GetTableName() string {
-	return m.Version
+func (m *CreateUsersTable) TableName() string {
+	return Version
 }
 
 func (m *CreateUsersTable) Up(ctx context.Context, client *dynamodb.Client) error {
@@ -36,7 +37,7 @@ func (m *CreateUsersTable) Up(ctx context.Context, client *dynamodb.Client) erro
 				KeyType:       types.KeyTypeHash,
 			},
 		},
-		TableName: aws.String(m.TableName),
+		TableName: aws.String(TableName),
 		ProvisionedThroughput: &types.ProvisionedThroughput{
 			ReadCapacityUnits:  aws.Int64(5),
 			WriteCapacityUnits: aws.Int64(5),
@@ -49,7 +50,7 @@ func (m *CreateUsersTable) Up(ctx context.Context, client *dynamodb.Client) erro
 
 func (m *CreateUsersTable) Down(ctx context.Context, client *dynamodb.Client) error {
 	input := &dynamodb.DeleteTableInput{
-		TableName: aws.String(m.TableName),
+		TableName: aws.String(TableName),
 	}
 
 	_, err := client.DeleteTable(ctx, input)

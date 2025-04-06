@@ -1,5 +1,5 @@
 # Stage 1: Build Stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Create a non-root user and group in the build stage
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
