@@ -52,7 +52,7 @@ func NewUserHandler(s UserService, cfg *config.Config) *UserHandler {
 	return h
 }
 
-func (h *UserHandler) PostUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) PostUser(w http.ResponseWriter, r *http.Request, sub string) {
 	log.Debug("Received POST /api/v1/users request")
 
 	var u PostUserRequest
@@ -87,7 +87,7 @@ func (h *UserHandler) PostUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request, sub string) {
 	log.Debug("Received GET /api/v1/users/{username} request")
 
 	username := chi.URLParam(r, "username")
@@ -112,7 +112,7 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request, sub string) {
 	log.Debug("Received PUT /api/v1/users/{username} request")
 
 	username := chi.URLParam(r, "username")
@@ -144,7 +144,7 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request, sub string) {
 	log.Debug("Received DELETE /api/v1/users/{username} request")
 
 	username := chi.URLParam(r, "username")

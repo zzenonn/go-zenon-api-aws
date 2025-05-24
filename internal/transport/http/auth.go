@@ -11,7 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func JwtAuth(original func(w http.ResponseWriter, r *http.Request), publicKey *ecdsa.PublicKey) func(w http.ResponseWriter, r *http.Request) {
+func JwtAuth(original func(w http.ResponseWriter, r *http.Request, sub string), publicKey *ecdsa.PublicKey) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header["Authorization"]
 		if authHeader == nil {
@@ -26,30 +26,49 @@ func JwtAuth(original func(w http.ResponseWriter, r *http.Request), publicKey *e
 			return
 		}
 
-		if validateToken(authHeaderParts[1], publicKey) {
-			original(w, r)
-		} else {
+		token, err := jwt.Parse(authHeaderParts[1], func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
+				return nil, errors.New("unexpected signing method")
+			}
+			return publicKey, nil
+		})
+
+		if err != nil || !token.Valid {
 			http.Error(w, "not authorized", http.StatusUnauthorized)
 			return
 		}
-	}
-}
 
-func validateToken(accessToken string, publicKey *ecdsa.PublicKey) bool {
-	token, err := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
-		// Ensure the signing method is ES384 (ECDSA with SHA-384)
-		if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
-			return nil, errors.New("unexpected signing method")
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			http.Error(w, "invalid token claims", http.StatusUnauthorized)
+			return
 		}
-		return publicKey, nil
-	})
 
-	if err != nil {
-		return false
+		sub, ok := claims["sub"].(string)
+		if !ok {
+			http.Error(w, "invalid subject claim", http.StatusUnauthorized)
+			return
+		}
+
+		original(w, r, sub)
 	}
-
-	return token.Valid
 }
+
+// func validateToken(accessToken string, publicKey *ecdsa.PublicKey) bool {
+// 	token, err := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
+// 		// Ensure the signing method is ES384 (ECDSA with SHA-384)
+// 		if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
+// 			return nil, errors.New("unexpected signing method")
+// 		}
+// 		return publicKey, nil
+// 	})
+
+// 	if err != nil {
+// 		return false
+// 	}
+
+// 	return token.Valid
+// }
 
 func generateJwtToken(username string, privateKey *ecdsa.PrivateKey) (string, error) {
 	// Create a new token object, specifying signing method and the claims
