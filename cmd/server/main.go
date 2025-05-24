@@ -8,6 +8,7 @@ import (
 	"github.com/zzenonn/go-zenon-api-aws/internal/config"
 	"github.com/zzenonn/go-zenon-api-aws/internal/logging"
 	"github.com/zzenonn/go-zenon-api-aws/internal/repository/db"
+	"github.com/zzenonn/go-zenon-api-aws/internal/repository/objectstore"
 	"github.com/zzenonn/go-zenon-api-aws/internal/service"
 	handlers "github.com/zzenonn/go-zenon-api-aws/internal/transport/http"
 )
@@ -39,10 +40,22 @@ func Run() error {
 	userService := service.NewUserService(&userRepository)
 	userHandler := handlers.NewUserHandler(userService, cfg)
 
+	s3Store, err := db.NewS3Store(cfg)
+
+	if err != nil {
+		log.Error("Failed to connect to the object store")
+		return err
+	}
+
+	userProfileRepository := objectstore.NewObjectStore(s3Store.Client, "user_profiles")
+	userProfileService := service.NewUserProfileService(&userProfileRepository)
+	userProfileHandler := handlers.NewUserProfileHandler(userProfileService, cfg)
+
 	mainHandler := handlers.NewMainHandler(cfg)
 
 	// httpHandler.AddHandler(commentHandler)
 	mainHandler.AddHandler(userHandler)
+	mainHandler.AddHandler(userProfileHandler)
 
 	mainHandler.MapRoutes()
 
