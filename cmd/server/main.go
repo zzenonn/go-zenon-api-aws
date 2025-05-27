@@ -40,14 +40,9 @@ func Run() error {
 	userService := service.NewUserService(&userRepository)
 	userHandler := handlers.NewUserHandler(userService, cfg)
 
-	s3Store, err := db.NewS3Store(cfg)
+	s3Store := objectstore.NewObjectStore(cfg)
 
-	if err != nil {
-		log.Error("Failed to connect to the object store")
-		return err
-	}
-
-	userProfileRepository := objectstore.NewObjectStore(s3Store.Client, "user_profiles")
+	userProfileRepository := objectstore.NewUserProfileRepository(s3Store.Client, "zaavedra-test-app-s3-bucket")
 	userProfileService := service.NewUserProfileService(&userProfileRepository)
 	userProfileHandler := handlers.NewUserProfileHandler(userProfileService, cfg)
 

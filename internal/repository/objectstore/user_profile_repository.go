@@ -8,13 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-// Repository defines the interface for object storage operations
-type Repository interface {
-	Upload(ctx context.Context, key string, r io.Reader) error
-	Download(ctx context.Context, key string) (io.ReadCloser, error)
-	Delete(ctx context.Context, key string) error
-}
-
 // UserProfileRepository manages S3 interactions for user profiles.
 type UserProfileRepository struct {
 	client     *s3.Client
@@ -39,16 +32,18 @@ func (r *UserProfileRepository) Upload(ctx context.Context, key string, reader i
 	return err
 }
 
-// Download retrieves a user profile file from S3
-func (r *UserProfileRepository) Download(ctx context.Context, key string) (io.ReadCloser, error) {
-	result, err := r.client.GetObject(ctx, &s3.GetObjectInput{
+// Download generates a pre-signed URL for accessing a user profile file from S3
+func (r *UserProfileRepository) GetPresignedUrl(ctx context.Context, key string) (string, error) {
+	presignClient := s3.NewPresignClient(r.client)
+
+	request, err := presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(r.bucketName),
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return result.Body, nil
+	return request.URL, nil
 }
 
 // Delete removes a user profile file from S3

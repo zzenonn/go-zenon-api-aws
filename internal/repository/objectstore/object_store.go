@@ -12,7 +12,7 @@ type S3Store struct {
 	TaggingClient *resourcegroupstaggingapi.Client
 }
 
-func NewObjectStore(cfg *config.Config) (*S3Store, error) {
+func NewObjectStore(cfg *config.Config) *S3Store {
 	client := s3.NewFromConfig(cfg.AwsConfig)
 	if client == nil {
 		log.Fatal("Failed to create S3 client")
@@ -26,5 +26,5 @@ func NewObjectStore(cfg *config.Config) (*S3Store, error) {
 	return &S3Store{
 		Client:        client,
 		TaggingClient: taggingClient,
-	}, nil
+	}
 }

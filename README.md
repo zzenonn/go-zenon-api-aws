@@ -91,7 +91,7 @@ curl -X POST http://localhost:8080/api/v1/users \
   -H "Authorization: Bearer eyJhbGciOiJFUzM4NCIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MzQ3ODI3NDksImlhdCI6MTczNDY5NjM0OSwic3ViIjoiY3NjaTYxLXVzZXIifQ.odEl6mgNTTrYlbOd57b85DUbEzX7DrLKBcsA__HAAk3CFweRV2_quM7H8EAr__toqwMyYebIWMSoGAIZ3UHwVl5VsGDnn2HXx90I0aUEt_BmoR3L1g81tJzhBU_AaMIC" \ 
   -d '{
     "username": "new-user",
-    "password": "be$super$secure@discs"
+    "password": "password123"
   }'
 ```
 
