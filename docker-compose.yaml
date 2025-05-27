@@ -5,6 +5,8 @@ services:
     environment:
       - LOG_LEVEL=DEBUG
       - AWS_PROFILE=${AWS_PROFILE}
+      - DYNAMODB_TABLE=${DYNAMODB_TABLE}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
       # - AWS_SHARED_CREDENTIALS_FILE=/home/appuser/.aws/credentials
       # - AWS_CONFIG_FILE=/home/appuser/.aws/config
     ports:

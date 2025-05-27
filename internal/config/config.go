@@ -22,6 +22,8 @@ type Config struct {
 	ECDSAPrivateKey *ecdsa.PrivateKey
 	ECDSAPublicKey  *ecdsa.PublicKey
 	AwsConfig       aws.Config
+	DynamoDBTable   string
+	S3BucketName    string
 }
 
 // LoadConfig loads the configuration from environment variables and fetches the ECDSA keys from Secret Manager
@@ -40,9 +42,11 @@ func LoadConfig() (*Config, error) {
 	}
 
 	config := &Config{
-		LogLevel:  getEnv("LOG_LEVEL", "info"),
-		Port:      port,
-		AwsConfig: cfg,
+		LogLevel:      getEnv("LOG_LEVEL", "info"),
+		Port:          port,
+		AwsConfig:     cfg,
+		DynamoDBTable: getEnv("DYNAMODB_TABLE", "default-table"),
+		S3BucketName:  getEnv("S3_BUCKET_NAME", "default-bucket"),
 	}
 
 	// Fetch the ECDSA keys from AWS Secret Manager

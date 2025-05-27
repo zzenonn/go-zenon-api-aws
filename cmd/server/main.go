@@ -36,13 +36,13 @@ func Run() error {
 		return err
 	}
 
-	userRepository := db.NewUserRepository(dynamoDb.Client, "users")
+	userRepository := db.NewUserRepository(dynamoDb.Client, cfg.DynamoDBTable)
 	userService := service.NewUserService(&userRepository)
 	userHandler := handlers.NewUserHandler(userService, cfg)
 
 	s3Store := objectstore.NewObjectStore(cfg)
 
-	userProfileRepository := objectstore.NewUserProfileRepository(s3Store.Client, "zaavedra-test-app-s3-bucket")
+	userProfileRepository := objectstore.NewUserProfileRepository(s3Store.Client, cfg.S3BucketName)
 	userProfileService := service.NewUserProfileService(&userProfileRepository)
 	userProfileHandler := handlers.NewUserProfileHandler(userProfileService, cfg)
 

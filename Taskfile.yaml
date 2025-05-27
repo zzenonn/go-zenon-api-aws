@@ -17,14 +17,3 @@ tasks:
     cmds:
       - source .env && docker-compose up --build
 
-  deploy:
-    cmds:
-      - |
-        gcloud run deploy user-api \
-        --source . \
-        --project $PROJECT_ID \
-        --port 8080 \
-        --service-account $SERVICE_ACCOUNT \
-        --region asia-southeast1 \
-        --set-env-vars PROJECT_ID=$PROJECT_ID \
-        --update-secrets=ECDSA_PRIVATE_KEY=ECDSAPrivateKey:latest,ECDSA_PUBLIC_KEY=ECDSAPublicKey:latest

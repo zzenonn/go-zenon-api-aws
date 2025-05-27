@@ -76,6 +76,15 @@ The project is organized into several directories. Below is an overview of the p
 
 5. **Set up environment variables**: Configure the necessary environment variables for your application, such as `PROJECT_ID`, `PORT`, `LOG_LEVEL`, `ECDSA_PRIVATE_KEY_SECRET_PATH`, and `ECDSA_PUBLIC_KEY_SECRET_PATH` (used for JWT token signing). This is defined in `Taskfile.yaml`.
 
+| Variable | Description |
+|----------|-------------|
+| **PROJECT_ID** | Identifies your project, likely used for AWS resource naming or organization. |
+| **PORT** | Specifies which network port your Go API server will listen on (defaults to 8080 if not set). |
+| **LOG_LEVEL** | Controls the verbosity of logging in your application. Common values include "debug", "info", "warn", and "error". |
+| **ECDSA_PRIVATE_KEY_SECRET_PATH** | Path in AWS Parameter Store where your ECDSA private key is stored. Used for signing JWT tokens. Default: "/ecdsa/private-key". **Must be configured in AWS Parameter Store before running the application**. |
+| **ECDSA_PUBLIC_KEY_SECRET_PATH** | Path in AWS Parameter where your ECDSA public key is stored. Used for verifying JWT tokens. Default: "/ecdsa/public-key". **Must be configured in AWS Parameter Store before running the application**. |
+
+
 6. **Run the application**: You can run the application using `task run` or `go-task run` depending on how your system names the go-task utility.
 
 7. **Extend the application**: Add new features, services, and routes as needed. The template provides a solid foundation for building scalable Go applications.
@@ -123,6 +132,13 @@ curl -X POST http://localhost:8080/api/v1/users/login \
     "username": "testuser",
     "password": "password123"
   }'
+```
+
+### Upload Profile
+```bash
+curl -X PUT http://localhost:8080/api/v1/users/new-user/profile \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -F "file=@/path/to/profile.jpg"
 ```
 
 ## Conclusion
