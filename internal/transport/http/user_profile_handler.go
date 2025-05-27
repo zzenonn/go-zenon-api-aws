@@ -49,6 +49,16 @@ func (h *UserProfileHandler) PutProfile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Get sub claim from JWT token context
+	subVal := r.Context().Value(subjectContextKey)
+
+	sub, ok := subVal.(string)
+	if !ok || sub != username {
+		log.Error("Token sub does not match username or sub is missing. Sub value: ", sub)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	// Parse multipart form with 10MB size limit
 	err := r.ParseMultipartForm(10 << 20) // 10MB max
 	if err != nil {
