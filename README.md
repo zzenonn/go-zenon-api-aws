@@ -100,6 +100,7 @@ Once the server is running, you can interact with the API using `curl`. Below ar
 ```bash
 curl -X POST http://localhost:8080/api/v1/users \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT" \
   -d '{
     "username": "new-user",
     "password": "password123"
@@ -115,6 +116,7 @@ curl -X GET http://localhost:8080/api/v1/users/testuser
 ```bash
 curl -X PUT http://localhost:8080/api/v1/users/testuser \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT" \
   -d '{
     "username": "updateduser",
     "password": "newpassword123"
