@@ -34,7 +34,7 @@ func JwtAuth(original func(w http.ResponseWriter, r *http.Request), publicKey *e
 			return
 		}
 
-		token, err := jwt.Parse(authHeaderParts[1], func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.Parse(authHeaderParts[1], func(token *jwt.Token) (any, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
 				return nil, errors.New("unexpected signing method")
 			}
@@ -59,7 +59,7 @@ func JwtAuth(original func(w http.ResponseWriter, r *http.Request), publicKey *e
 }
 
 // func validateToken(accessToken string, publicKey *ecdsa.PublicKey) bool {
-// 	token, err := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
+// 	token, err := jwt.Parse(accessToken, func(token *jwt.Token) (any, error) {
 // 		// Ensure the signing method is ES384 (ECDSA with SHA-384)
 // 		if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
 // 			return nil, errors.New("unexpected signing method")

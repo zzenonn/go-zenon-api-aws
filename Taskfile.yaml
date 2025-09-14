@@ -3,7 +3,8 @@ version: '3'
 tasks:
   build:
     cmds:
-      - source .env && CGO_ENABLED=0 GOOS=linux go build -a -o app ./cmd/server
+      - mkdir -p build
+      - source .env && CGO_ENABLED=0 GOOS=linux go build -a -o build/app ./cmd/server
 
   test:
     cmds:

@@ -57,6 +57,8 @@ func NewUserHandler(s UserService, cfg *config.Config) *UserHandler {
 	return h
 }
 
+
+
 func (h *UserHandler) PostUser(w http.ResponseWriter, r *http.Request) {
 	log.Debug("Received POST /api/v1/users request")
 
@@ -127,11 +129,24 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var u domain.User
-	if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
+	if !ValidateUserAccess(w, r, username) {
+		return
+	}
+
+	var req PostUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Error("Error decoding request body: ", err)
 		return
 	}
+
+	// Validate that username in request body matches path parameter
+	if req.Username != username {
+		log.Error("Username in request body does not match path parameter")
+		http.Error(w, "Username cannot be changed", http.StatusBadRequest)
+		return
+	}
+
+	u := convertPostUserRequestToUser(req)
 
 	log.Debug(fmt.Sprintf("Updating user with ID: %s", username))
 
@@ -226,12 +241,7 @@ func (h *UserHandler) PutProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get sub claim from JWT token context
-	subVal := r.Context().Value(subjectContextKey)
-	sub, ok := subVal.(string)
-	if !ok || sub != username {
-		log.Error("Token sub does not match username or sub is missing. Sub value: ", sub)
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	if !ValidateUserAccess(w, r, username) {
 		return
 	}
 
@@ -316,12 +326,7 @@ func (h *UserHandler) DeleteProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get sub claim from JWT token context
-	subVal := r.Context().Value(subjectContextKey)
-	sub, ok := subVal.(string)
-	if !ok || sub != username {
-		log.Error("Token sub does not match username or sub is missing. Sub value: ", sub)
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	if !ValidateUserAccess(w, r, username) {
 		return
 	}
 
@@ -339,18 +344,18 @@ func (h *UserHandler) DeleteProfile(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) mapRoutes(router chi.Router) {
 	router.Route("/api/v1/users", func(r chi.Router) {
-		r.Post("/", h.PostUser)
+		r.Post("/", JwtAuth(h.PostUser, h.Config.ECDSAPublicKey))
 		r.Post("/login", h.Login)
 
 		r.Route("/{username}", func(r chi.Router) {
-			r.Get("/", h.GetUser)
-			r.Put("/", h.UpdateUser)
-			r.Delete("/", h.DeleteUser)
+			r.Get("/", JwtAuth(h.GetUser, h.Config.ECDSAPublicKey))
+			r.Put("/", JwtAuth(h.UpdateUser, h.Config.ECDSAPublicKey))
+			r.Delete("/", JwtAuth(h.DeleteUser, h.Config.ECDSAPublicKey))
 
 			// Profile routes
 			r.Route("/profile", func(r chi.Router) {
 				r.Put("/", JwtAuth(h.PutProfile, h.Config.ECDSAPublicKey))
-				r.Get("/", h.GetProfile)
+				r.Get("/", JwtAuth(h.GetProfile, h.Config.ECDSAPublicKey))
 				r.Delete("/", JwtAuth(h.DeleteProfile, h.Config.ECDSAPublicKey))
 			})
 		})
