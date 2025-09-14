@@ -14,6 +14,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Test constants
+const (
+	TestPassword    = "password123"
+	NewPassword     = "newpassword123"
+	AdminUsername   = "admin"
+	AdminPassword   = "admin"
+	FakeImageData   = "fake image data"
+	ProfileFilename = "profile.jpg"
+)
+
+// Test endpoints
+const (
+	UsersEndpoint   = "/api/v1/users"
+	LoginEndpoint   = "/api/v1/users/login"
+	GetUserEndpoint = "/api/v1/users/getuser"
+	ProfileEndpoint = "/api/v1/users/%s/profile"
+	UserEndpoint    = "/api/v1/users/%s"
+)
+
 type UserTestSuite struct {
 	server *httptest.Server
 	client *http.Client
@@ -34,22 +53,35 @@ func setupUserTestServer(t *testing.T) *UserTestSuite {
 	}
 }
 
-func (ts *UserTestSuite) createUserWithAuth(username, password string) {
-	// Create user with admin token
-	adminToken := ts.getUserToken("admin", "admin")
-	createPayload := map[string]string{
+// Helper methods for common operations
+func (ts *UserTestSuite) makeAuthenticatedRequest(method, endpoint, token string, body []byte) (*http.Response, error) {
+	req, err := http.NewRequest(method, ts.server.URL+endpoint, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	return ts.client.Do(req)
+}
+
+func (ts *UserTestSuite) createTestUser(username, password string) error {
+	adminToken := ts.getUserToken(AdminUsername, AdminPassword)
+	payload := map[string]string{
 		"username": username,
 		"password": password,
 	}
-	createBody, _ := json.Marshal(createPayload)
-	req, _ := http.NewRequest("POST", ts.server.URL+"/api/v1/users", bytes.NewBuffer(createBody))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+adminToken)
-	ts.client.Do(req)
+	body, _ := json.Marshal(payload)
+	resp, err := ts.makeAuthenticatedRequest("POST", UsersEndpoint, adminToken, body)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
 }
 
 func (ts *UserTestSuite) getUserToken(username, password string) string {
-	var token string
 	loginPayload := map[string]string{
 		"username": username,
 		"password": password,
@@ -59,405 +91,315 @@ func (ts *UserTestSuite) getUserToken(username, password string) string {
 	var loginResp *http.Response
 	RetryWithBackoff(func() error {
 		var err error
-		loginResp, err = ts.client.Post(ts.server.URL+"/api/v1/users/login", "application/json", bytes.NewBuffer(loginBody))
+		loginResp, err = ts.client.Post(ts.server.URL+LoginEndpoint, "application/json", bytes.NewBuffer(loginBody))
 		return err
 	})
 	defer loginResp.Body.Close()
 
-	var loginResult map[string]any
-	json.NewDecoder(loginResp.Body).Decode(&loginResult)
-	token = loginResult["token"].(string)
-	return token
+	result := unmarshalResponse(loginResp)
+	return result["token"].(string)
 }
 
-// Test Create User - mirrors: curl -X POST http://localhost:8080/api/v1/users
+func (ts *UserTestSuite) createMultipartRequest(endpoint, token, filename string, data []byte) (*http.Response, error) {
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	fileWriter, _ := writer.CreateFormFile("file", filename)
+	fileWriter.Write(data)
+	writer.Close()
+
+	req, err := http.NewRequest("PUT", ts.server.URL+endpoint, &buf)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer "+token)
+	return ts.client.Do(req)
+}
+
+func unmarshalResponse(resp *http.Response) map[string]any {
+	var result map[string]any
+	json.NewDecoder(resp.Body).Decode(&result)
+	return result
+}
+
+// Test Create User
 func TestCreateUser(t *testing.T) {
 	ts := setupUserTestServer(t)
-
-	adminToken := ts.getUserToken("admin", "admin")
+	adminToken := ts.getUserToken(AdminUsername, AdminPassword)
 
 	payload := map[string]string{
 		"username": "testuser",
-		"password": "password123",
+		"password": TestPassword,
 	}
 
 	body, _ := json.Marshal(payload)
-	req, _ := http.NewRequest("POST", ts.server.URL+"/api/v1/users", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+adminToken)
-
-	resp, err := ts.client.Do(req)
+	resp, err := ts.makeAuthenticatedRequest("POST", UsersEndpoint, adminToken, body)
 
 	require.NoError(t, err)
 	defer resp.Body.Close()
-
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var result map[string]any
-	json.NewDecoder(resp.Body).Decode(&result)
+	result := unmarshalResponse(resp)
 	assert.Equal(t, "testuser", result["username"])
 }
 
-// Test Login - mirrors: curl -X POST http://localhost:8080/api/v1/users/login
+// Test Login
 func TestLogin(t *testing.T) {
 	ts := setupUserTestServer(t)
+	username := "loginuser"
 
-	// First create a user using admin token
-	ts.createUserWithAuth("loginuser", "password123")
+	ts.createTestUser(username, TestPassword)
 
-	// Then login as the created user with retry logic
 	loginPayload := map[string]string{
-		"username": "loginuser",
-		"password": "password123",
+		"username": username,
+		"password": TestPassword,
 	}
-
 	loginBody, _ := json.Marshal(loginPayload)
 
-	var result map[string]any
 	var resp *http.Response
 	err := RetryWithBackoff(func() error {
 		var err error
-		resp, err = ts.client.Post(
-			ts.server.URL+"/api/v1/users/login",
-			"application/json",
-			bytes.NewBuffer(loginBody),
-		)
+		resp, err = ts.client.Post(ts.server.URL+LoginEndpoint, "application/json", bytes.NewBuffer(loginBody))
 		return err
 	})
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	json.NewDecoder(resp.Body).Decode(&result)
+	result := unmarshalResponse(resp)
 	assert.NotEmpty(t, result["token"])
 }
 
-// Test Get User - mirrors: curl -X GET http://localhost:8080/api/v1/users/getuser
+// Test Get User
 func TestGetUser(t *testing.T) {
 	ts := setupUserTestServer(t)
+	username := "getuser"
 
-	// First create getuser using admin token
-	ts.createUserWithAuth("getuser", "password123")
-
-	// Get getuser token for authenticated request
-	getuserToken := ts.getUserToken("getuser", "password123")
-
-	// Then get the user with retry logic for eventual consistency
-	req, _ := http.NewRequest("GET", ts.server.URL+"/api/v1/users/getuser", nil)
-	req.Header.Set("Authorization", "Bearer "+getuserToken)
+	ts.createTestUser(username, TestPassword)
+	token := ts.getUserToken(username, TestPassword)
 
 	var resp *http.Response
 	err := RetryWithBackoff(func() error {
 		var err error
-		resp, err = ts.client.Do(req)
+		resp, err = ts.makeAuthenticatedRequest("GET", GetUserEndpoint, token, nil)
 		return err
 	})
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	var result map[string]any
-	json.NewDecoder(resp.Body).Decode(&result)
-	assert.Equal(t, "getuser", result["username"])
+	result := unmarshalResponse(resp)
+	assert.Equal(t, username, result["username"])
 }
 
-// Test Update User - mirrors: curl -X PUT http://localhost:8080/api/v1/users/testuser
+// Test Update User
 func TestUpdateUser(t *testing.T) {
 	ts := setupUserTestServer(t)
+	username := "updateuser"
 
-	// First create a user using admin token with retry logic
-	adminToken := ts.getUserToken("admin", "admin")
+	// Create user
+	adminToken := ts.getUserToken(AdminUsername, AdminPassword)
 	createPayload := map[string]string{
-		"username": "updateuser",
-		"password": "password123",
+		"username": username,
+		"password": TestPassword,
 	}
 	createBody, _ := json.Marshal(createPayload)
-	req, _ := http.NewRequest("POST", ts.server.URL+"/api/v1/users", bytes.NewBuffer(createBody))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+adminToken)
 
 	var resp *http.Response
 	err := RetryWithBackoff(func() error {
 		var err error
-		resp, err = ts.client.Do(req)
+		resp, err = ts.makeAuthenticatedRequest("POST", UsersEndpoint, adminToken, createBody)
 		return err
 	})
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// Get updateuser token for authenticated request
-	updateuserToken := ts.getUserToken("updateuser", "password123")
-
-	// Then update the user (only password, username cannot be changed)
+	// Update user password
+	userToken := ts.getUserToken(username, TestPassword)
 	updatePayload := map[string]string{
-		"username": "updateuser",
-		"password": "newpassword123",
+		"username": username,
+		"password": NewPassword,
 	}
-
 	updateBody, _ := json.Marshal(updatePayload)
 
-	updateReq, _ := http.NewRequest("PUT", ts.server.URL+"/api/v1/users/updateuser", bytes.NewBuffer(updateBody))
-	updateReq.Header.Set("Content-Type", "application/json")
-	updateReq.Header.Set("Authorization", "Bearer "+updateuserToken)
-
-	resp, err = ts.client.Do(updateReq)
-
+	updateResp, err := ts.makeAuthenticatedRequest("PUT", "/api/v1/users/"+username, userToken, updateBody)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer updateResp.Body.Close()
+	assert.Equal(t, http.StatusOK, updateResp.StatusCode)
 
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	result := unmarshalResponse(updateResp)
+	assert.Equal(t, username, result["username"])
 
-	var result map[string]any
-	json.NewDecoder(resp.Body).Decode(&result)
-	assert.Equal(t, "updateuser", result["username"])
-
-	// Wait for eventual consistency before verifying password update
+	// Verify password update
 	time.Sleep(3 * time.Second)
-
-	// Verify password update by attempting login with new password
 	loginPayload := map[string]string{
-		"username": "updateuser",
-		"password": "newpassword123",
+		"username": username,
+		"password": NewPassword,
 	}
 	loginBody, _ := json.Marshal(loginPayload)
-	loginResp, err := ts.client.Post(
-		ts.server.URL+"/api/v1/users/login",
-		"application/json",
-		bytes.NewBuffer(loginBody),
-	)
+	loginResp, err := ts.client.Post(ts.server.URL+LoginEndpoint, "application/json", bytes.NewBuffer(loginBody))
 	require.NoError(t, err)
 	defer loginResp.Body.Close()
 	assert.Equal(t, http.StatusOK, loginResp.StatusCode)
 }
 
-// Test Delete User - mirrors: curl -X DELETE http://localhost:8080/api/v1/users/deleteuser
+// Test Delete User
 func TestDeleteUser(t *testing.T) {
 	ts := setupUserTestServer(t)
+	username := "deleteuser"
 
-	// First create deleteuser using admin token with retry logic
-	adminToken := ts.getUserToken("admin", "admin")
+	// Create user
+	adminToken := ts.getUserToken(AdminUsername, AdminPassword)
 	createPayload := map[string]string{
-		"username": "deleteuser",
-		"password": "password123",
+		"username": username,
+		"password": TestPassword,
 	}
 	createBody, _ := json.Marshal(createPayload)
-	createReq, _ := http.NewRequest("POST", ts.server.URL+"/api/v1/users", bytes.NewBuffer(createBody))
-	createReq.Header.Set("Content-Type", "application/json")
-	createReq.Header.Set("Authorization", "Bearer "+adminToken)
 
 	var createResp *http.Response
 	err := RetryWithBackoff(func() error {
 		var err error
-		createResp, err = ts.client.Do(createReq)
+		createResp, err = ts.makeAuthenticatedRequest("POST", UsersEndpoint, adminToken, createBody)
 		return err
 	})
 	require.NoError(t, err)
 	defer createResp.Body.Close()
 	assert.Equal(t, http.StatusOK, createResp.StatusCode)
 
-	// Get deleteuser token for authenticated request
-	deleteuserToken := ts.getUserToken("deleteuser", "password123")
-
-	// Then delete the user with retry logic for eventual consistency
-	deleteReq, _ := http.NewRequest("DELETE", ts.server.URL+"/api/v1/users/deleteuser", nil)
-	deleteReq.Header.Set("Authorization", "Bearer "+deleteuserToken)
-
+	// Delete user
+	userToken := ts.getUserToken(username, TestPassword)
 	var deleteResp *http.Response
 	err = RetryWithBackoff(func() error {
 		var err error
-		deleteResp, err = ts.client.Do(deleteReq)
+		deleteResp, err = ts.makeAuthenticatedRequest("DELETE", "/api/v1/users/"+username, userToken, nil)
 		return err
 	})
 	require.NoError(t, err)
 	defer deleteResp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, deleteResp.StatusCode)
-	var result map[string]any
-	err = json.NewDecoder(deleteResp.Body).Decode(&result)
-	if err != nil {
-		// If JSON decode fails but status is 200, consider it success
+	result := unmarshalResponse(deleteResp)
+	if result["message"] == nil {
 		result = map[string]any{"message": "Successfully deleted"}
 	}
 	assert.Equal(t, "Successfully deleted", result["message"])
 }
 
-// Test Upload Profile - mirrors: curl -X PUT http://localhost:8080/api/v1/users/uploaduser/profile
+// Test Profile Operations
 func TestUploadProfile(t *testing.T) {
 	ts := setupUserTestServer(t)
+	username := "uploaduser"
 
-	// Create uploaduser with admin token, then get uploaduser token
-	ts.createUserWithAuth("uploaduser", "password123")
-	token := ts.getUserToken("uploaduser", "password123")
+	ts.createTestUser(username, TestPassword)
+	token := ts.getUserToken(username, TestPassword)
 
-	// Create multipart form data
-	var buf bytes.Buffer
-	writer := multipart.NewWriter(&buf)
-
-	// Add file field
-	fileWriter, _ := writer.CreateFormFile("file", "profile.jpg")
-	fileWriter.Write([]byte("fake image data"))
-	writer.Close()
-
-	// Create request with JWT token
-	req, _ := http.NewRequest("PUT", ts.server.URL+"/api/v1/users/uploaduser/profile", &buf)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := ts.client.Do(req)
-
+	resp, err := ts.createMultipartRequest("/api/v1/users/"+username+"/profile", token, ProfileFilename, []byte(FakeImageData))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
-
-	var result map[string]any
-	json.NewDecoder(resp.Body).Decode(&result)
+	result := unmarshalResponse(resp)
 	assert.Equal(t, "Profile uploaded successfully", result["message"])
 }
 
-// Test Get Profile - mirrors: curl -X GET http://localhost:8080/api/v1/users/getprofileuser/profile
 func TestGetProfile(t *testing.T) {
 	ts := setupUserTestServer(t)
+	username := "getprofileuser"
 
-	// Create getprofileuser with admin token
-	ts.createUserWithAuth("getprofileuser", "password123")
-	token := ts.getUserToken("getprofileuser", "password123")
+	ts.createTestUser(username, TestPassword)
+	token := ts.getUserToken(username, TestPassword)
 
-	// Get profile URL with JWT token
-	req, _ := http.NewRequest("GET", ts.server.URL+"/api/v1/users/getprofileuser/profile", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := ts.client.Do(req)
-
+	resp, err := ts.makeAuthenticatedRequest("GET", "/api/v1/users/"+username+"/profile", token, nil)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	var result map[string]any
-	json.NewDecoder(resp.Body).Decode(&result)
+	result := unmarshalResponse(resp)
 	assert.NotEmpty(t, result["profile_url"])
 }
 
-// Test Delete Profile - mirrors: curl -X DELETE http://localhost:8080/api/v1/users/testuser/profile
 func TestDeleteProfile(t *testing.T) {
 	ts := setupUserTestServer(t)
+	username := "testuser"
 
-	// Create testuser with admin token, then get testuser token
-	ts.createUserWithAuth("testuser", "password123")
-	token := ts.getUserToken("testuser", "password123")
+	ts.createTestUser(username, TestPassword)
+	token := ts.getUserToken(username, TestPassword)
 
-	// Delete profile
-	req, _ := http.NewRequest("DELETE", ts.server.URL+"/api/v1/users/testuser/profile", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := ts.client.Do(req)
-
+	resp, err := ts.makeAuthenticatedRequest("DELETE", "/api/v1/users/"+username+"/profile", token, nil)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	var result map[string]any
-	json.NewDecoder(resp.Body).Decode(&result)
+	result := unmarshalResponse(resp)
 	assert.Equal(t, "Profile deleted successfully", result["message"])
 }
 
-// Test Upload Profile Without Auth - should fail
-func TestUploadProfileUnauthorized(t *testing.T) {
+// Table-driven tests for unauthorized operations
+func TestUnauthorizedOperations(t *testing.T) {
+	tests := []struct {
+		name     string
+		method   string
+		endpoint string
+		setupFn  func(*UserTestSuite) ([]byte, string)
+	}{
+		{
+			name:     "Upload Profile No Auth",
+			method:   "PUT",
+			endpoint: "/api/v1/users/testuser/profile",
+			setupFn: func(ts *UserTestSuite) ([]byte, string) {
+				var buf bytes.Buffer
+				writer := multipart.NewWriter(&buf)
+				fileWriter, _ := writer.CreateFormFile("file", ProfileFilename)
+				fileWriter.Write([]byte(FakeImageData))
+				writer.Close()
+				return buf.Bytes(), ""
+			},
+		},
+		{
+			name:     "Delete Profile No Auth",
+			method:   "DELETE",
+			endpoint: "/api/v1/users/testuser/profile",
+			setupFn:  func(ts *UserTestSuite) ([]byte, string) { return nil, "" },
+		},
+		{
+			name:     "Update User Cross-User",
+			method:   "PUT",
+			endpoint: "/api/v1/users/user2",
+			setupFn: func(ts *UserTestSuite) ([]byte, string) {
+				adminToken := ts.getUserToken(AdminUsername, AdminPassword)
+				// Create two users
+				users := []string{"user1", "user2"}
+				for _, user := range users {
+					createPayload := map[string]string{"username": user, "password": TestPassword}
+					createBody, _ := json.Marshal(createPayload)
+					ts.makeAuthenticatedRequest("POST", UsersEndpoint, adminToken, createBody)
+				}
+				// Return update payload and user1's token (wrong user)
+				user1Token := ts.getUserToken("user1", TestPassword)
+				updatePayload := map[string]string{"username": "user2", "password": NewPassword}
+				updateBody, _ := json.Marshal(updatePayload)
+				return updateBody, user1Token
+			},
+		},
+	}
+
 	ts := setupUserTestServer(t)
-
-	// Create multipart form data
-	var buf bytes.Buffer
-	writer := multipart.NewWriter(&buf)
-
-	fileWriter, _ := writer.CreateFormFile("file", "profile.jpg")
-	fileWriter.Write([]byte("fake image data"))
-	writer.Close()
-
-	// Create request without JWT token
-	req, _ := http.NewRequest("PUT", ts.server.URL+"/api/v1/users/testuser/profile", &buf)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	resp, err := ts.client.Do(req)
-
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, token := tt.setupFn(ts)
+			resp, err := ts.makeAuthenticatedRequest(tt.method, tt.endpoint, token, body)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+			assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		})
+	}
 }
 
-// Test Delete Profile Without Auth - should fail
-func TestDeleteProfileUnauthorized(t *testing.T) {
-	ts := setupUserTestServer(t)
-
-	// Delete profile without token
-	req, _ := http.NewRequest("DELETE", ts.server.URL+"/api/v1/users/testuser/profile", nil)
-
-	resp, err := ts.client.Do(req)
-
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
-}
-
-// Test Update User Unauthorized - should fail when trying to update another user
-func TestUpdateUserUnauthorized(t *testing.T) {
-	ts := setupUserTestServer(t)
-
-	// Create two users
-	adminToken := ts.getUserToken("admin", "admin")
-	createPayload1 := map[string]string{
-		"username": "user1",
-		"password": "password123",
-	}
-	createBody1, _ := json.Marshal(createPayload1)
-	req1, _ := http.NewRequest("POST", ts.server.URL+"/api/v1/users", bytes.NewBuffer(createBody1))
-	req1.Header.Set("Content-Type", "application/json")
-	req1.Header.Set("Authorization", "Bearer "+adminToken)
-	ts.client.Do(req1)
-
-	createPayload2 := map[string]string{
-		"username": "user2",
-		"password": "password123",
-	}
-	createBody2, _ := json.Marshal(createPayload2)
-	req2, _ := http.NewRequest("POST", ts.server.URL+"/api/v1/users", bytes.NewBuffer(createBody2))
-	req2.Header.Set("Content-Type", "application/json")
-	req2.Header.Set("Authorization", "Bearer "+adminToken)
-	ts.client.Do(req2)
-
-	// Get user1 token
-	user1Token := ts.getUserToken("user1", "password123")
-
-	// Try to update user2 with user1's token (should fail)
-	updatePayload := map[string]string{
-		"username": "user2",
-		"password": "newpassword123",
-	}
-	updateBody, _ := json.Marshal(updatePayload)
-	updateReq, _ := http.NewRequest("PUT", ts.server.URL+"/api/v1/users/user2", bytes.NewBuffer(updateBody))
-	updateReq.Header.Set("Content-Type", "application/json")
-	updateReq.Header.Set("Authorization", "Bearer "+user1Token)
-
-	resp, err := ts.client.Do(updateReq)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
-}
-
-// TestMain sets up and tears down the test environment
 func TestMain(m *testing.M) {
-	// Run all tests
 	code := m.Run()
-
-	// Clean up shared resources
 	if testServer != nil {
 		TeardownTestServer(testServer)
 	}
-
 	os.Exit(code)
 }
