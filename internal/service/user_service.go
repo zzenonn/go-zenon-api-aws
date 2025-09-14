@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"io"
 
 	"github.com/zzenonn/go-zenon-api-aws/internal/domain"
 	"github.com/zzenonn/go-zenon-api-aws/internal/errors"
@@ -17,15 +18,24 @@ type UserRepository interface {
 	GetAllUsers(ctx context.Context, pageSize int, nextToken string) ([]domain.User, string, error)
 }
 
-// UserService - service for managing users
+// UserProfileRepository - interface for profile storage operations
+type UserProfileRepository interface {
+	Upload(ctx context.Context, key string, r io.Reader) error
+	GetPresignedUrl(ctx context.Context, key string) (string, error)
+	Delete(ctx context.Context, key string) error
+}
+
+// UserService - service for managing users and profiles
 type UserService struct {
-	Repo UserRepository
+	Repo        UserRepository
+	ProfileRepo UserProfileRepository
 }
 
 // NewUserService - returns a new instance of UserService
-func NewUserService(repo UserRepository) *UserService {
+func NewUserService(repo UserRepository, profileRepo UserProfileRepository) *UserService {
 	return &UserService{
-		Repo: repo,
+		Repo:        repo,
+		ProfileRepo: profileRepo,
 	}
 }
 
@@ -123,4 +133,47 @@ func (s *UserService) Login(ctx context.Context, username string, password strin
 	}
 
 	return nil
+}
+
+// UploadProfile uploads a user profile image
+func (s *UserService) UploadProfile(ctx context.Context, username string, key string, r io.Reader) error {
+	profilePath := username + "/profile/" + key
+	err := s.ProfileRepo.Upload(ctx, profilePath, r)
+	if err != nil {
+		return err
+	}
+
+	// Update user's profile path in database
+	user, err := s.Repo.GetUser(ctx, username)
+	if err != nil {
+		return err
+	}
+
+	user.ProfilePath = &profilePath
+	_, err = s.Repo.UpdateUser(ctx, username, user)
+	return err
+}
+
+// GeneratePresignedURL generates a pre-signed URL for accessing a profile image
+func (s *UserService) GeneratePresignedURL(ctx context.Context, username string, key string) (string, error) {
+	return s.ProfileRepo.GetPresignedUrl(ctx, username+"/profile/"+key)
+}
+
+// DeleteProfile deletes a user profile image
+func (s *UserService) DeleteProfile(ctx context.Context, username string, key string) error {
+	profilePath := username + "/profile/" + key
+	err := s.ProfileRepo.Delete(ctx, profilePath)
+	if err != nil {
+		return err
+	}
+
+	// Clear user's profile path in database
+	user, err := s.Repo.GetUser(ctx, username)
+	if err != nil {
+		return err
+	}
+
+	user.ProfilePath = nil
+	_, err = s.Repo.UpdateUser(ctx, username, user)
+	return err
 }

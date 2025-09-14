@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
@@ -19,6 +21,9 @@ type UserService interface {
 	DeleteUser(ctx context.Context, id string) error
 	CreateUser(ctx context.Context, u domain.User) (domain.User, error)
 	Login(ctx context.Context, username string, password string) error
+	UploadProfile(ctx context.Context, username string, key string, r io.Reader) error
+	GeneratePresignedURL(ctx context.Context, username string, key string) (string, error)
+	DeleteProfile(ctx context.Context, username string, key string) error
 }
 
 type Token struct {
@@ -210,15 +215,144 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// PutProfile handles PUT requests to upload a user's profile image
+func (h *UserHandler) PutProfile(w http.ResponseWriter, r *http.Request) {
+	log.Debug("Received PUT /api/v1/users/{username}/profile request")
+
+	username := chi.URLParam(r, "username")
+	if username == "" {
+		log.Error("No username provided in request")
+		http.Error(w, "Username is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get sub claim from JWT token context
+	subVal := r.Context().Value(subjectContextKey)
+	sub, ok := subVal.(string)
+	if !ok || sub != username {
+		log.Error("Token sub does not match username or sub is missing. Sub value: ", sub)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse multipart form with 10MB size limit
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		log.Error("Failed to parse multipart form: ", err)
+		http.Error(w, "Invalid multipart form", http.StatusBadRequest)
+		return
+	}
+
+	// Retrieve and validate file from form
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		log.Error("Failed to read file: ", err)
+		http.Error(w, "File upload is required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Get file extension
+	ext := filepath.Ext(header.Filename)
+	if ext == "" {
+		ext = ".jpg" // default extension
+	}
+	key := "profile" + ext
+
+	// Upload profile image using the service
+	err = h.Service.UploadProfile(r.Context(), username, key, file)
+	if err != nil {
+		log.Error("Error uploading profile: ", err)
+		http.Error(w, "Failed to upload profile", http.StatusInternalServerError)
+		return
+	}
+
+	log.Debug(fmt.Sprintf("Profile uploaded successfully for user: %s", username))
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(Response{Message: "Profile uploaded successfully"})
+}
+
+// GetProfile handles GET requests to retrieve a user's profile image URL
+func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
+	log.Debug("Received GET /api/v1/users/{username}/profile request")
+
+	username := chi.URLParam(r, "username")
+	if username == "" {
+		log.Error("No username provided in request")
+		http.Error(w, "Username is required", http.StatusBadRequest)
+		return
+	}
+
+	// Generate pre-signed URL for profile image
+	profileURL, err := h.Service.GeneratePresignedURL(r.Context(), username, "profile.jpg")
+	if err != nil {
+		log.Error("Error generating profile URL: ", err)
+		http.Error(w, "Failed to get profile", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	response := struct {
+		ProfileURL string `json:"profile_url"`
+	}{
+		ProfileURL: profileURL,
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Error("Error encoding response: ", err)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
+// DeleteProfile handles DELETE requests to remove a user's profile image
+func (h *UserHandler) DeleteProfile(w http.ResponseWriter, r *http.Request) {
+	log.Debug("Received DELETE /api/v1/users/{username}/profile request")
+
+	username := chi.URLParam(r, "username")
+	if username == "" {
+		log.Error("No username provided in request")
+		http.Error(w, "Username is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get sub claim from JWT token context
+	subVal := r.Context().Value(subjectContextKey)
+	sub, ok := subVal.(string)
+	if !ok || sub != username {
+		log.Error("Token sub does not match username or sub is missing. Sub value: ", sub)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Delete profile image using the service
+	err := h.Service.DeleteProfile(r.Context(), username, "profile.jpg")
+	if err != nil {
+		log.Error("Error deleting profile: ", err)
+		http.Error(w, "Failed to delete profile", http.StatusInternalServerError)
+		return
+	}
+
+	log.Debug(fmt.Sprintf("Profile deleted successfully for user: %s", username))
+	json.NewEncoder(w).Encode(Response{Message: "Profile deleted successfully"})
+}
+
 func (h *UserHandler) mapRoutes(router chi.Router) {
 	router.Route("/api/v1/users", func(r chi.Router) {
-		r.Post("/", h.PostUser) //JwtAuth(h.PostUser, h.Config.ECDSAPublicKey))
+		r.Post("/", h.PostUser)
 		r.Post("/login", h.Login)
 
-		// r.Route("/{username}", func(r chi.Router) {
-		// 	r.Get("/", h.GetUser)
-		// 	r.Put("/", h.UpdateUser)
-		// 	r.Delete("/", h.DeleteUser)
-		// })
+		r.Route("/{username}", func(r chi.Router) {
+			r.Get("/", h.GetUser)
+			r.Put("/", h.UpdateUser)
+			r.Delete("/", h.DeleteUser)
+
+			// Profile routes
+			r.Route("/profile", func(r chi.Router) {
+				r.Put("/", JwtAuth(h.PutProfile, h.Config.ECDSAPublicKey))
+				r.Get("/", h.GetProfile)
+				r.Delete("/", JwtAuth(h.DeleteProfile, h.Config.ECDSAPublicKey))
+			})
+		})
 	})
 }

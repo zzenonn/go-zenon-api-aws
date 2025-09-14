@@ -7,6 +7,7 @@ type User struct {
 	Username       *string `json:"username,omitempty" dynamodbav:"pk,omitempty"`
 	Password       string  `json:"-" dynamodbav:"-"`
 	HashedPassword []byte  `json:"-" dynamodbav:"hashed_password,omitempty"`
+	ProfilePath    *string `json:"profile_path,omitempty" dynamodbav:"profile_path,omitempty"`
 }
 
 // HashPassword - hashes the user's password

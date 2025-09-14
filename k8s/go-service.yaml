@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: irsa-config
+
+data:
+  AWS_REGION: us-east-1 # Change as needed
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: irsa-sa
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/YourIRSAIAMRole # Change this to your IAM role ARN
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-zenon-api-aws
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: go-zenon-api-aws
+  template:
+    metadata:
+      labels:
+        app: go-zenon-api-aws
+    spec:
+      serviceAccountName: irsa-sa
+      containers:
+        - name: go-zenon-api-aws
+          image: your-docker-repo/go-zenon-api-aws:latest # Change to your image
+          ports:
+            - containerPort: 8080
+          env:
+            - name: AWS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: irsa-config
+                  key: AWS_REGION
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-zenon-api-aws
+spec:
+  selector:
+    app: go-zenon-api-aws
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP 

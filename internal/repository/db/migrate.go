@@ -71,6 +71,38 @@ func (d *DynamoDb) MigrateDb(ctx context.Context) error {
 	return nil
 }
 
+func (d *DynamoDb) MigrateDown(ctx context.Context) error {
+	log.Info("rolling back database migrations")
+
+	// Define migrations in reverse order for rollback
+	migrations := []Migration{
+		&migrate.CreateUsersTable{},
+	}
+
+	// Reverse the slice for rollback
+	for i := len(migrations) - 1; i >= 0; i-- {
+		migration := migrations[i]
+		
+		// Check if migration was applied
+		if applied, err := d.isMigrationApplied(ctx, migration.Version()); err != nil {
+			return fmt.Errorf("could not check migration status: %w", err)
+		} else if !applied {
+			log.Infof("skipping rollback %s: not applied", migration.Version())
+			continue
+		}
+
+		// Rollback migration
+		if err := migration.Down(ctx, d.Client); err != nil {
+			return fmt.Errorf("could not rollback migration %s: %w", migration.Version(), err)
+		}
+
+		log.Infof("successfully rolled back migration %s", migration.Version())
+	}
+
+	log.Info("successfully rolled back database migrations")
+	return nil
+}
+
 func (d *DynamoDb) isMigrationApplied(ctx context.Context, version string) (bool, error) {
 	input := &resourcegroupstaggingapi.GetResourcesInput{
 		TagFilters: []rgTypes.TagFilter{

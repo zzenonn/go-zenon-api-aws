@@ -3,11 +3,11 @@ version: '3'
 tasks:
   build:
     cmds:
-      - source .env && go build -v ./...
+      - source .env && CGO_ENABLED=0 GOOS=linux go build -a -o app ./cmd/server
 
   test:
     cmds:
-      - source .env && go test -v ./...
+      - source .env && go test -v ./tests/...
 
   lint:
     cmds:

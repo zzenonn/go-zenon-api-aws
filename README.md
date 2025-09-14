@@ -2,6 +2,9 @@
 
 This project serves as a template for building Go-based web applications, providing a structured foundation with key components such as configuration management, logging, database access, service layers, and HTTP transport. It follows a clean architecture approach, with a clear separation of concerns between different layers of the application.
 
+## Installing Go
+If you do not have go installed on your machine, you can follow these instructions [Installing Go](INSTALL_GO.md).
+
 ## Project Structure
 
 The project is organized into several directories. Below is an overview of the project structure:
@@ -97,7 +100,6 @@ Once the server is running, you can interact with the API using `curl`. Below ar
 ```bash
 curl -X POST http://localhost:8080/api/v1/users \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer eyJhbGciOiJFUzM4NCIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MzQ3ODI3NDksImlhdCI6MTczNDY5NjM0OSwic3ViIjoiY3NjaTYxLXVzZXIifQ.odEl6mgNTTrYlbOd57b85DUbEzX7DrLKBcsA__HAAk3CFweRV2_quM7H8EAr__toqwMyYebIWMSoGAIZ3UHwVl5VsGDnn2HXx90I0aUEt_BmoR3L1g81tJzhBU_AaMIC" \ 
   -d '{
     "username": "new-user",
     "password": "password123"
@@ -129,7 +131,7 @@ curl -X DELETE http://localhost:8080/api/v1/users/testuser
 curl -X POST http://localhost:8080/api/v1/users/login \
   -H "Content-Type: application/json" \
   -d '{
-    "username": "testuser",
+    "username": "new-user",
     "password": "password123"
   }'
 ```
@@ -137,7 +139,7 @@ curl -X POST http://localhost:8080/api/v1/users/login \
 ### Upload Profile
 ```bash
 curl -X PUT http://localhost:8080/api/v1/users/new-user/profile \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -H "Authorization: Bearer $JWT" \
   -F "file=@/path/to/profile.jpg"
 ```
 
@@ -146,3 +148,4 @@ curl -X PUT http://localhost:8080/api/v1/users/new-user/profile \
 This template provides a well-structured starting point for Go projects, following best practices such as clean architecture and separation of concerns. It includes placeholders for configuration, logging, error handling, database access, and service layers, making it easy to extend and customize for specific use cases. The `http` package includes JWT authentication, middleware, and user-related handlers, making it easy to implement secure and scalable HTTP APIs.
 
 This repository is meant to be **forked** or **cloned** and modified to fit your specific project needs.
+

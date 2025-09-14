@@ -42,3 +42,6 @@ docker-compose.override.yml
 
 # Taskfile logs and temp files
 Taskfile.dist.yml
+
+# Project specific
+TODO.md
