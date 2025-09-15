@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +19,34 @@ const (
 	MaxRetries = 3
 	BaseDelay  = 100 * time.Millisecond
 )
+
+var (
+	testResults = make(map[string]bool)
+	testMutex   sync.Mutex
+)
+
+func RecordTest(name string, passed bool) {
+	testMutex.Lock()
+	defer testMutex.Unlock()
+	testResults[name] = passed
+}
+
+func PrintTestSummary() {
+	fmt.Println("\n=== TEST SUMMARY ===")
+	passed, failed := 0, 0
+
+	for testName, result := range testResults {
+		if result {
+			fmt.Printf("✓ %s\n", testName)
+			passed++
+		} else {
+			fmt.Printf("✗ %s\n", testName)
+			failed++
+		}
+	}
+
+	fmt.Printf("\nTotal: %d passed, %d failed\n", passed, failed)
+}
 
 // CreateTestConfig creates a test configuration using .env values
 func CreateTestConfig(t *testing.T) *config.Config {
@@ -92,4 +121,18 @@ func RetryWithBackoff(fn func() error) error {
 	}
 
 	return fmt.Errorf("operation failed after %d attempts, last error: %w", MaxRetries, lastErr)
+}
+
+// Global test server variables
+var (
+	globalTestServer *httptest.Server
+	globalTestClient *http.Client
+)
+
+// GetGlobalTestServer returns the shared test server, creating it if needed
+func GetGlobalTestServer(t *testing.T) (*httptest.Server, *http.Client) {
+	if globalTestServer == nil {
+		globalTestServer, globalTestClient = SetupTestServer(t)
+	}
+	return globalTestServer, globalTestClient
 }

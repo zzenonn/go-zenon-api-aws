@@ -39,17 +39,14 @@ type UserTestSuite struct {
 }
 
 var (
-	testServer *httptest.Server
-	testClient *http.Client
+// Remove these as they're now in test_helper.go
 )
 
 func setupUserTestServer(t *testing.T) *UserTestSuite {
-	if testServer == nil {
-		testServer, testClient = SetupTestServer(t)
-	}
+	server, client := GetGlobalTestServer(t)
 	return &UserTestSuite{
-		server: testServer,
-		client: testClient,
+		server: server,
+		client: client,
 	}
 }
 
@@ -124,6 +121,7 @@ func unmarshalResponse(resp *http.Response) map[string]any {
 
 // Test Create User
 func TestCreateUser(t *testing.T) {
+	defer func() { RecordTest("CreateUser", !t.Failed()) }()
 	ts := setupUserTestServer(t)
 	adminToken := ts.getUserToken(AdminUsername, AdminPassword)
 
@@ -145,6 +143,7 @@ func TestCreateUser(t *testing.T) {
 
 // Test Login
 func TestLogin(t *testing.T) {
+	defer func() { RecordTest("Login", !t.Failed()) }()
 	ts := setupUserTestServer(t)
 	username := "loginuser"
 
@@ -172,6 +171,7 @@ func TestLogin(t *testing.T) {
 
 // Test Get User
 func TestGetUser(t *testing.T) {
+	defer func() { RecordTest("GetUser", !t.Failed()) }()
 	ts := setupUserTestServer(t)
 	username := "getuser"
 
@@ -194,6 +194,7 @@ func TestGetUser(t *testing.T) {
 
 // Test Update User
 func TestUpdateUser(t *testing.T) {
+	defer func() { RecordTest("UpdateUser", !t.Failed()) }()
 	ts := setupUserTestServer(t)
 	username := "updateuser"
 
@@ -246,6 +247,7 @@ func TestUpdateUser(t *testing.T) {
 
 // Test Delete User
 func TestDeleteUser(t *testing.T) {
+	defer func() { RecordTest("DeleteUser", !t.Failed()) }()
 	ts := setupUserTestServer(t)
 	username := "deleteuser"
 
@@ -288,6 +290,7 @@ func TestDeleteUser(t *testing.T) {
 
 // Test Profile Operations
 func TestUploadProfile(t *testing.T) {
+	defer func() { RecordTest("UploadProfile", !t.Failed()) }()
 	ts := setupUserTestServer(t)
 	username := "uploaduser"
 
@@ -304,6 +307,7 @@ func TestUploadProfile(t *testing.T) {
 }
 
 func TestGetProfile(t *testing.T) {
+	defer func() { RecordTest("GetProfile", !t.Failed()) }()
 	ts := setupUserTestServer(t)
 	username := "getprofileuser"
 
@@ -320,6 +324,7 @@ func TestGetProfile(t *testing.T) {
 }
 
 func TestDeleteProfile(t *testing.T) {
+	defer func() { RecordTest("DeleteProfile", !t.Failed()) }()
 	ts := setupUserTestServer(t)
 	username := "testuser"
 
@@ -398,8 +403,9 @@ func TestUnauthorizedOperations(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	code := m.Run()
-	if testServer != nil {
-		TeardownTestServer(testServer)
+	PrintTestSummary()
+	if globalTestServer != nil {
+		TeardownTestServer(globalTestServer)
 	}
 	os.Exit(code)
 }
